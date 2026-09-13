@@ -12,7 +12,12 @@
     <div class="subtitle">Website Assistant</div>
   </div>
   <div class="chat-window" id="chat-window">
-    <div class="message bot">Hi, ask me anything about CertiMinds.</div>
+    <div class="message bot">Hi! I'm the CertiMinds assistant. Ask me about our Launchpad program, building a team, career opportunities, or anything else about CertiMinds.</div>
+  </div>
+  <div class="suggestions" id="suggestions">
+    {% for question in suggestions %}
+    <button class="suggestion-btn" onclick="askSuggestion(this)">{{ question }}</button>
+    {% endfor %}
   </div>
   <div class="chat-input">
     <input type="text" id="user-input" placeholder="Type your question...">

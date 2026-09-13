@@ -10,6 +10,23 @@ function addMessage(text, sender) {
     chatWindow.scrollTop = chatWindow.scrollHeight;
 }
 
+function renderSuggestions(suggestions) {
+    const container = document.getElementById("suggestions");
+    container.innerHTML = "";
+    suggestions.forEach(function(question) {
+        const btn = document.createElement("button");
+        btn.className = "suggestion-btn";
+        btn.textContent = question;
+        btn.onclick = function() { askSuggestion(btn); };
+        container.appendChild(btn);
+    });
+}
+
+function askSuggestion(button) {
+    userInput.value = button.textContent;
+    sendMessage();
+}
+
 async function sendMessage() {
     const message = userInput.value.trim();
     if (!message) return;
@@ -25,6 +42,9 @@ async function sendMessage() {
         });
         const data = await response.json();
         addMessage(data.answer, "bot");
+        if (data.suggestions) {
+            renderSuggestions(data.suggestions);
+        }
     } catch (error) {
         addMessage("Something went wrong. Please try again.", "bot");
     }

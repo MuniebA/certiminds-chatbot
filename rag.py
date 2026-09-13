@@ -13,14 +13,22 @@ client = genai.Client()
 
 INDEX_FILE = "index.json"
 EMBEDDING_MODEL = "gemini-embedding-001"
-# CHAT_MODEL = "gemini-3.5-flash"
-# LITE_MODEL = "gemini-flash-lite-latest"
 
 CHAT_MODEL = "gemini-flash-lite-latest"
 LITE_MODEL = "gemini-flash-lite-latest"
 
 RELEVANCE_THRESHOLD = 0.35
 MAX_CONTEXT_CHUNKS = 5
+
+INITIAL_SUGGESTIONS = [
+    "What does CertiMinds do?",
+    "Tell me about the Launchpad program",
+    "How can I build a team with CertiMinds?",
+    "How do I contact CertiMinds?"
+]
+
+def clarification_message():
+    return "I'd be happy to help. Could you clarify your question, or pick one of the suggestions below?"
 
 def load_index():
     with open(INDEX_FILE, "r", encoding="utf-8") as f:
@@ -90,20 +98,24 @@ def check_intent(query):
 def generate_answer(query, context_chunks):
     context_text = "\n\n".join(c["text"] for c in context_chunks)
     system_prompt = (
-        "You are a chatbot that answers questions about CertiMinds using only the provided context. "
-        "The context is written in English. Respond in the same language the user asked their question in "
-        "(for example, answer in Arabic if the question was asked in Arabic), translating the relevant "
-        "information from the context accurately. "
-        "If the answer is not present in the context, say clearly, in the user's language, that the "
-        "information is not available on the website. Do not use any outside knowledge."
+        "You are the official CertiMinds website assistant. Answer the user's question "
+        "naturally and professionally, as CertiMinds itself would, using only the information "
+        "given to you below. "
+        "Never mention 'the context', 'the provided text', 'the website says', or similar "
+        "meta-references to your source material. Just state the information directly, as fact. "
+        "Respond in the same language the user asked their question in. "
+        "If the information is not available, say so clearly and professionally, without "
+        "referencing 'the context' - for example: 'That information isn't available right now, "
+        "but you can reach out to our team directly for details.' "
+        "Do not use any outside knowledge beyond what is given below."
     )
-    user_prompt = f"Context:\n{context_text}\n\nQuestion: {query}"
+    user_prompt = f"Information:\n{context_text}\n\nQuestion: {query}"
 
-    response = client.models.generate_content(
+    response = call_with_retry(lambda: client.models.generate_content(
         model=CHAT_MODEL,
         contents=user_prompt,
         config=types.GenerateContentConfig(system_instruction=system_prompt, temperature=0)
-    )
+    ))
     return response.text.strip()
 
 def guardrail_check(answer, context_chunks):
@@ -114,11 +126,11 @@ def guardrail_check(answer, context_chunks):
         "Does the answer rely only on facts present in the context above, "
         "with no invented details? Reply with exactly YES or NO."
     )
-    response = client.models.generate_content(
+    response = call_with_retry(lambda: client.models.generate_content(
         model=LITE_MODEL,
         contents=prompt,
         config=types.GenerateContentConfig(temperature=0)
-    )
+    ))
     return response.text.strip().upper().startswith("YES")
 
 def answer_query(query, index):
@@ -128,18 +140,43 @@ def answer_query(query, index):
         return cached
 
     if not check_intent(query):
-        return "Could you rephrase or be more specific about your question? / يرجى إعادة صياغة سؤالك أو توضيحه أكثر"
+        return clarification_message()
 
     scored_chunks = retrieve_candidates(query, index)
     relevant_chunks = filter_relevant(scored_chunks)
 
     if not relevant_chunks:
-        return "I could not find information about that on the CertiMinds website. / لم أتمكن من العثور على هذه المعلومة على موقع CertiMinds"
+        return "That information isn't available on our website right now, but feel free to reach out to our team directly for more details."
 
     answer = generate_answer(query, relevant_chunks)
 
     if not guardrail_check(answer, relevant_chunks):
-        return "I could not find reliable information about that on the CertiMinds website. / لم أتمكن من العثور على معلومة موثوقة حول هذا على موقع CertiMinds"
+        return "I couldn't find a reliable answer to that. Please contact our team directly for accurate information."
 
     store_answer(query, answer, cache)
     return answer
+
+def generate_suggestions(chat_history):
+    if not chat_history:
+        return INITIAL_SUGGESTIONS
+
+    history_text = "\n".join(f"{turn['role']}: {turn['text']}" for turn in chat_history[-6:])
+    prompt = (
+        "Based on this conversation with a company website assistant for CertiMinds "
+        "(a technology talent consultancy in Qatar with programs like Launchpad, team building, "
+        "and career building), suggest exactly 3 short, natural follow-up questions the user "
+        "might want to ask next. Do not repeat questions already asked. Keep each under 10 words. "
+        "Respond in the same language the user has been using in the conversation. "
+        "Return only the 3 questions, one per line, no numbering, no extra text.\n\n"
+        f"Conversation:\n{history_text}"
+    )
+    try:
+        response = call_with_retry(lambda: client.models.generate_content(
+            model=LITE_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=0.7)
+        ))
+        lines = [line.strip("-* ").strip() for line in response.text.strip().splitlines() if line.strip()]
+        return lines[:3] if lines else INITIAL_SUGGESTIONS
+    except Exception:
+        return INITIAL_SUGGESTIONS
