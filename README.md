@@ -53,16 +53,23 @@ built for the CertiMinds Stage 3 technical assessment.
     ├── pyproject.toml          # project dependencies, managed by uv
     ├── uv.lock                  # exact locked dependency versions for reproducible installs
     ├── .python-version          # python version pinned for this project
-    ├── .env                      # your actual API key, not included in this submission
+    ├── .env                      # your actual API key, excluded from the repo via .gitignore
     ├── .env.example             # template showing which environment variables are needed
     ├── .gitignore                # excludes .env, .venv, __pycache__ from version control
     │
-    ├── .venv/                   # virtual environment created by uv, not included in this submission
-    └── __pycache__/             # compiled python bytecode cache, not included in this submission
+    ├── .venv/                   # virtual environment created by uv, excluded from the repo
+    └── __pycache__/             # compiled python bytecode cache, excluded from the repo
 
 ## Setup
 
 Requires Python and uv (https://docs.astral.sh/uv/).
+
+Clone the repository:
+
+    git clone https://github.com/MuniebA/certiminds-chatbot.git
+    cd certiminds-chatbot
+
+Install dependencies:
 
     uv sync
 
