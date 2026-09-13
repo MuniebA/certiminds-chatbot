@@ -96,7 +96,12 @@ def check_intent(query):
     return answer.startswith("YES")
 
 def generate_answer(query, context_chunks):
-    context_text = "\n\n".join(c["text"] for c in context_chunks)
+    context_parts = []
+    for c in context_chunks:
+        url = c.get("url", "")
+        context_parts.append(f"[Page: {url}]\n{c['text']}")
+    context_text = "\n\n".join(context_parts)
+
     system_prompt = (
         "You are the official CertiMinds website assistant. Answer the user's question "
         "naturally and professionally, as CertiMinds itself would, using only the information "
@@ -104,6 +109,17 @@ def generate_answer(query, context_chunks):
         "Never mention 'the context', 'the provided text', 'the website says', or similar "
         "meta-references to your source material. Just state the information directly, as fact. "
         "Respond in the same language the user asked their question in. "
+        "Each piece of information below is labeled with the full page URL it came from, like "
+        "[Page: https://certiminds.com/contact]. When your answer would naturally point the user "
+        "to a specific page (booking a call, contacting, applying, viewing a program page), include "
+        "that exact full URL directly in your answer as plain text, for example: "
+        "'You can book a call here: https://certiminds.com/contact'. "
+        "Never output a relative path like /contact - always use the full URL exactly as labeled. "
+        "Only include a URL when it is genuinely relevant to the answer, not in every response. "
+        "Format your answer for readability: keep paragraphs short (2-3 sentences). "
+        "If your answer involves multiple steps or items, put each one on its own separate line, "
+        "starting with a number and a period (like '1. Register your interest') or a dash, never "
+        "crammed together in a single paragraph. Use **bold** only for short key terms. "
         "If the information is not available, say so clearly and professionally, without "
         "referencing 'the context' - for example: 'That information isn't available right now, "
         "but you can reach out to our team directly for details.' "

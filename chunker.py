@@ -1,5 +1,7 @@
 import os
 
+BASE_URL = "https://certiminds.com"
+
 def chunk_text(text, chunk_size=300, overlap=50):
     words = text.split()
     chunks = []
@@ -11,6 +13,14 @@ def chunk_text(text, chunk_size=300, overlap=50):
         start = end - overlap
     return chunks
 
+def filename_to_url(filename):
+    # reverses the crawler's filename logic to recover the real page url
+    name = filename.replace(".md", "").replace(".html", "")
+    if name == "home":
+        return BASE_URL + "/"
+    path = name.replace("_", "/")
+    return f"{BASE_URL}/{path}"
+
 def load_and_chunk_markdown(markdown_dir):
     all_chunks = []
     for filename in os.listdir(markdown_dir):
@@ -19,10 +29,12 @@ def load_and_chunk_markdown(markdown_dir):
         filepath = os.path.join(markdown_dir, filename)
         with open(filepath, "r", encoding="utf-8") as f:
             text = f.read()
+        url = filename_to_url(filename)
         for i, chunk in enumerate(chunk_text(text)):
             all_chunks.append({
                 "id": f"{filename}_{i}",
                 "source": filename,
+                "url": url,
                 "text": chunk
             })
     return all_chunks
