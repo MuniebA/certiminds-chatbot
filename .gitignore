@@ -1,0 +1,15 @@
+# environment and secrets
+.env
+
+# python virtual environment
+.venv/
+
+# python bytecode cache
+__pycache__/
+*.pyc
+
+# editor/OS clutter
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
